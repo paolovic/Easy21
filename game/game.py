@@ -1,5 +1,4 @@
 from mdp.action import Action
-from mdp.reward import Reward
 from mdp.state import State
 
 
@@ -18,29 +17,27 @@ class Game:
             self.player.hit()
         else:
             self.dealer_turn()
-        new_state = self.calculate_state(state)
-        reward = self.calculate_reward(new_state)
-        return new_state, reward
+        next_state = self.calculate_state(state)
+        reward = self.calculate_reward(next_state)
+        print(f"Reward: {reward}")
+        print(f"Next state: {next_state}")
+        return next_state, reward
 
     def calculate_state(self, state):
-        new_state = State(dealers_first_card=state.dealers_first_card, players_sum=self.player.score,
+        new_state = State(dealers_first_card=state.dealer_showing, players_sum=self.player.score,
                           terminal=(self.player.bust or self.dealer.bust or state.terminal))
         return new_state
 
     def calculate_reward(self, state):
         if state.terminal:
-            if self.player.bust:
-                return Reward.LOSE
-            elif self.dealer.bust:
-                return Reward.WIN
-            elif self.player.score > self.dealer.score:
-                return Reward.WIN
-            elif self.player.score < self.dealer.score:
-                return Reward.LOSE
+            if self.player.bust or self.player.score < self.dealer.score:
+                return -1
+            elif self.dealer.bust or self.player.score > self.dealer.score:
+                return 1
             else:
-                return Reward.DRAW
+                return 0
         else:
-            return Reward.DRAW
+            return 0
 
     def dealer_turn(self):
         while self.dealer.score < 17:
@@ -74,24 +71,25 @@ class Game:
         print("Welcome to the game of Easy21!")
 
     def print_winner(self, reward):
-        if reward is Reward.WIN:
-            print("The winner is {}".format(self.player.name))
-        elif reward is Reward.LOSE:
-            print("The winner is {}".format(self.dealer.name))
+        if reward > 0:
+            print(f"The winner is {self.player.name}")
+        elif reward < 0:
+            print(f"The winner is {self.dealer.name}")
+        else:
+            print("It's a draw!")
 
     def print_stick_or_hit_message(self, player):
         answer = input(f"@{player.name}: Do you want to stick or hit?\n")
         if answer != "stick" and answer != "hit":
             raise ValueError("Please enter 'hit' or 'stick'")
-        self.print_decision_message(player, answer)
         if answer == "hit":
             return Action.HIT
         else:
             return Action.STICK
 
     def print_current_game_state(self):
-        print(f"The dealer's first card is worth {self.state.dealers_first_card}")
-        print(f"@{self.player.name}: Your hand is worth {self.state.players_sum}")
+        print(f"The dealer's first card is worth {self.state.dealer_showing}")
+        print(f"@{self.player.name}: Your hand is worth {self.state.player_sum}")
 
     def print_decision_message(self, player, decision):
         print(f"The {player.name} has decided to {decision}")
