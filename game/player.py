@@ -4,10 +4,11 @@ class Player:
         self.hand = None
         self.score = None
         self.name = name
-        self.start(deck)
+        self.deck = deck
+        self.start()
 
-    def hit(self, deck, colour=None):
-        self.hand.append(deck.draw(colour))
+    def hit(self, colour=None):
+        self.hand.append(self.deck.draw(colour))
         self.calculate_score()
         return self.hand[-1]
 
@@ -19,8 +20,8 @@ class Player:
         if self.score > 21 or self.score < 1:
             self.bust = True
 
-    def start(self, deck):
+    def start(self):
         self.score = 0
         self.hand = []
-        self.hit(deck,  colour="black")
+        self.hit(colour="black")
         self.bust = False
