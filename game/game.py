@@ -19,7 +19,7 @@ class Game:
         if action is Action.HIT:
             self.player.hit()
         else:
-            self.dealer_turn()
+            self.dealer_turn(state)
         next_state = self.calculate_state(state)
         reward = self.calculate_reward(next_state)
         print(f"Immediate Reward: {reward}")
@@ -65,8 +65,9 @@ class Game:
                         returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] / \
                         N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value]
                     # pi(s_t) = argmax_a(Q(s_t, a))
-                    policy[s_t.dealer_showing - 1, s_t.player_sum - 1] = np.argmax(
-                        action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, :])
+                    policy[s_t.dealer_showing - 1, s_t.player_sum - 1] = Action(np.argmax(
+                        action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, :]))
+        return action_value_function
 
     def generate_episode(self, state, action, policy):
         episode = []
@@ -99,7 +100,7 @@ class Game:
         else:
             return 0
 
-    def dealer_turn(self):
+    def dealer_turn(self, state):
         while self.dealer.score < 17:
             self.print_decision_message(self.dealer, Action.HIT)
             self.dealer.hit()
@@ -109,7 +110,7 @@ class Game:
                 break
         if not self.dealer.bust:
             self.print_decision_message(self.dealer, Action.STICK)
-            self.state.terminal = True
+        state.terminal = True
 
     def play(self):
         while not self.state.terminal:
