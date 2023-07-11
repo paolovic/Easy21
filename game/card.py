@@ -1,5 +1,3 @@
-from utils import *
-
 
 class Card:
     def __init__(self, rng, colour=None):
