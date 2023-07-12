@@ -6,4 +6,9 @@ class Deck:
         self.rng = rng
 
     def draw(self, colour):
-        return Card(rng=self.rng, colour=colour)
+        if colour and colour not in ['red', 'black']:
+            raise ValueError("Colour must be 'red' or 'black'")
+        else:
+            colour = self.rng.choice(['red', 'black'], p=[1 / 3, 2 / 3])
+        value = self.rng.randint(1, 11)
+        return Card(colour=colour, value=value)

@@ -4,24 +4,26 @@ import numpy as np
 
 
 class Game:
-    def __init__(self, deck, state, player, dealer, rng):
+    def __init__(self, deck, player, dealer, rng):
+        self.state = None
         self.reward = None
         self.deck = deck
         self.player = player
         self.dealer = dealer
-        self.state = state
-        self.print_welcome_message()
-        self.print_current_game_state()
         self.rng = rng
+        self.print_welcome_message()
 
     def step(self, state, action):
         self.print_decision_message(self.player, action)
         if action is Action.HIT:
             self.player.hit()
         else:
-            self.dealer_turn(state)
+            self.dealer_turn()
+            state.terminal = True
         next_state = self.calculate_state(state)
         reward = self.calculate_reward(next_state)
+        self.state = next_state
+        self.print_current_game_state()
         print(f"Immediate Reward: {reward}")
         print(f"Next state: {next_state}")
         return next_state, reward
@@ -35,31 +37,30 @@ class Game:
         N = np.zeros((10, 21, 2))
         # loop forever for each episode
         for episode in range(episodes):
-            # choose s_0 randomly
-            self.dealer.start()
-            self.player.start()
-            self.dealer.hand[0].value = self.rng.randint(1, 11)
-            self.player.hand[0].value = self.rng.randint(1, 22)
-            s_0 = State(dealers_first_card=self.dealer.hand[0].value, players_sum=self.player.hand[0].value,
+            # choose S_0 randomly
+            self.player.reset(value=self.rng.randint(1, 22))
+            self.dealer.reset(value=self.rng.randint(1, 11))
+            S_0 = State(dealers_first_card=self.dealer.score, players_sum=self.player.score,
                         terminal=False)
-            # choose a_0 randomly
-            a_0 = self.rng.choice([Action.HIT, Action.STICK])
-            # generate an episode starting from s_0, a_0, following pi
-            episode = self.generate_episode(s_0, a_0, policy)
-            g = 0
+            # choose A_0 randomly
+            A_0 = self.rng.choice([Action.HIT, Action.STICK])
+            # generate an episode starting from S_0, A_0, following pi
+            episode = self.generate_episode(S_0, A_0, policy)
+            G = 0
             # loop for each step of episode, t = T-1, T-2, ..., 0
             for t in range(len(episode) - 1, -1, -1):
                 gamma = 1
                 # G = R_t+1 + gamma * G
-                g = episode[t][2] + gamma * g
-                # unless s_t, a_t appears in s_0, a_0, s_1, a_1, ..., s_t-1, a_t-1:
+                G = episode[t][2] + gamma * G
+                # unless s_t, a_t appears in S_0, A_0, s_1, a_1, ..., s_t-1, a_t-1:
                 s_t = episode[t][0]
                 a_t = episode[t][1]
                 if (s_t, a_t) not in [(x[0], x[1]) for x in episode[:t]]:
                     # returns(s_t, a_t) = returns(s_t, a_t) + G
-                    returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += g
+                    returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += G
                     # count the number of times s_t is visited
-                    N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] + 1
+                    N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = N[
+                                                                                   s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] + 1
                     # Q(s_t, a_t) = average(returns(s_t, a_t))
                     action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = \
                         returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] / \
@@ -76,14 +77,13 @@ class Game:
             episode.append((state, action, reward))
             if next_state.terminal:
                 break
-            action = policy[next_state.dealer_showing-1, next_state.player_sum-1]
+            action = policy[next_state.dealer_showing - 1, next_state.player_sum - 1]
             state = next_state
         return episode
 
     def calculate_state(self, state):
-        new_state = State(dealers_first_card=state.dealer_showing, players_sum=self.player.score,
-                          terminal=(self.player.bust or self.dealer.bust or state.terminal))
-        return new_state
+        return State(dealers_first_card=state.dealer_showing, players_sum=self.player.score,
+                     terminal=(self.player.bust or self.dealer.bust or state.terminal))
 
     def calculate_reward(self, state):
         if state.terminal:
@@ -100,17 +100,15 @@ class Game:
         else:
             return 0
 
-    def dealer_turn(self, state):
+    def dealer_turn(self):
         while self.dealer.score < 17:
             self.print_decision_message(self.dealer, Action.HIT)
             self.dealer.hit()
-            self.print_current_game_state()
             if self.dealer.bust:
                 self.print_bust_message(self.dealer)
                 break
         if not self.dealer.bust:
             self.print_decision_message(self.dealer, Action.STICK)
-        state.terminal = True
 
     def play(self):
         while not self.state.terminal:
