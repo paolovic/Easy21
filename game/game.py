@@ -28,39 +28,90 @@ class Game:
         print(f"Next state: {next_state}")
         return next_state, reward
 
+    def select_action_epsilon_greedy(self, policy, state, epsilon):
+        if self.rng.uniform() < epsilon:
+            return self.rng.choice([a for a in Action])
+        else:
+            return self.select_action_greedy(policy, state)
+
+    def select_action_greedy(self, policy, state):
+        return Action(np.argmax(policy[state.dealer_showing - 1, state.player_sum - 1]))
+
+    def on_policy_monte_carlo_control(self, episodes):
+        # initialise an arbitrary epsilon-soft policy
+        policy = self.rng.uniform(size=(10, 21, 2))
+        policy /= np.sum(policy, axis=2, keepdims=True)
+        # policy[:,:,0] corresponds to the probability of selecting HIT
+        # policy[:,:,1] corresponds to the probability of selecting STICK
+        action_value_function = np.zeros((10, 21, 2))
+        returns = np.zeros((10, 21, 2))
+        # count the number of times s is visited
+        N_s_a = np.zeros((10, 21, 2))
+        N_s = np.zeros((10, 21))
+        N_0 = 100
+        # repeat forever (for each episode)
+        for episode in range(episodes):
+            self.player.reset(value=self.rng.randint(1, 11))
+            self.dealer.reset(value=self.rng.randint(1, 11))
+            s_0 = State(dealers_first_card=self.dealer.score, players_sum=self.player.score,
+                        terminal=False)
+            episode = self.generate_episode(state=s_0, policy=policy, action=None, is_greedy=False)
+            G = 0
+            # loop for each step of episode, t = T-1, T-2, ..., 0
+            for t in range(len(episode) - 1, -1, -1):
+                gamma = 1
+                G = gamma * G + episode[t][2]
+                s_t = episode[t][0]
+                a_t = episode[t][1]
+                if (s_t, a_t) not in [(x[0], x[1]) for x in episode[:t]]:
+                    N_s_a[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += 1
+                    N_s[s_t.dealer_showing - 1, s_t.player_sum - 1] += 1
+                    returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += G
+                    action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = \
+                        returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] / \
+                        N_s_a[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value]
+                    action = Action(np.argmax(action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1]))
+                    epsilon = N_0 / (N_0 + N_s[s_0.dealer_showing - 1, s_0.player_sum - 1])
+                    # for all a in A(s) (for all actions in the state)
+                    for a in Action:
+                        if a == action:
+                            policy[s_t.dealer_showing - 1, s_t.player_sum - 1, a.value] = 1 - epsilon + (epsilon / float(len(Action)))
+                        else:
+                            policy[s_t.dealer_showing - 1, s_t.player_sum - 1, a.value] = epsilon / float(len(Action))
+        return action_value_function
+
     def monte_carlo_es(self, episodes):
         # initialise
-        policy = self.rng.choice([Action.HIT, Action.STICK], size=(10, 21))
+        policy = self.rng.choice([a for a in Action], size=(10, 21))
         action_value_function = np.zeros((10, 21, 2))
         returns = np.zeros((10, 21, 2))
         # count the number of times s is visited
         N = np.zeros((10, 21, 2))
         # loop forever for each episode
         for episode in range(episodes):
-            # choose S_0 randomly
+            # choose s_0 randomly
             self.player.reset(value=self.rng.randint(1, 22))
             self.dealer.reset(value=self.rng.randint(1, 11))
-            S_0 = State(dealers_first_card=self.dealer.score, players_sum=self.player.score,
+            s_0 = State(dealers_first_card=self.dealer.score, players_sum=self.player.score,
                         terminal=False)
-            # choose A_0 randomly
-            A_0 = self.rng.choice([Action.HIT, Action.STICK])
-            # generate an episode starting from S_0, A_0, following pi
-            episode = self.generate_episode(S_0, A_0, policy)
+            # choose a_0 randomly
+            a_0 = self.rng.choice([a for a in Action])
+            # generate an episode starting from s_0, a_0, following pi
+            episode = self.generate_episode(state=s_0, policy=policy, action=a_0, is_greedy=True)
             G = 0
             # loop for each step of episode, t = T-1, T-2, ..., 0
             for t in range(len(episode) - 1, -1, -1):
                 gamma = 1
                 # G = R_t+1 + gamma * G
                 G = episode[t][2] + gamma * G
-                # unless s_t, a_t appears in S_0, A_0, s_1, a_1, ..., s_t-1, a_t-1:
+                # unless s_t, a_t appears in s_0, a_0, s_1, a_1, ..., s_t-1, a_t-1:
                 s_t = episode[t][0]
                 a_t = episode[t][1]
                 if (s_t, a_t) not in [(x[0], x[1]) for x in episode[:t]]:
+                    # count the number of times s_t is visited
+                    N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += 1
                     # returns(s_t, a_t) = returns(s_t, a_t) + G
                     returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] += G
-                    # count the number of times s_t is visited
-                    N[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = N[
-                                                                                   s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] + 1
                     # Q(s_t, a_t) = average(returns(s_t, a_t))
                     action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] = \
                         returns[s_t.dealer_showing - 1, s_t.player_sum - 1, a_t.value] / \
@@ -70,14 +121,21 @@ class Game:
                         action_value_function[s_t.dealer_showing - 1, s_t.player_sum - 1, :]))
         return action_value_function
 
-    def generate_episode(self, state, action, policy):
+    def generate_episode(self, state, policy, action, is_greedy):
         episode = []
+        if action is None and not is_greedy:
+            epsilon = np.min(policy[state.dealer_showing - 1, state.player_sum - 1])
+            action = self.select_action_epsilon_greedy(policy=policy, state=state, epsilon=epsilon)
         while True:
             next_state, reward = self.step(state, action)
             episode.append((state, action, reward))
             if next_state.terminal:
                 break
-            action = policy[next_state.dealer_showing - 1, next_state.player_sum - 1]
+            if is_greedy:
+                action = self.select_action_greedy(policy, next_state)
+            else:
+                epsilon = np.min(policy[next_state.dealer_showing - 1, next_state.player_sum - 1])
+                action = self.select_action_epsilon_greedy(policy=policy, state=next_state, epsilon=epsilon)
             state = next_state
         return episode
 

@@ -6,3 +6,8 @@ class State:
 
     def __repr__(self):
         return f"State(dealer_showing={self.dealer_showing}, player_sum={self.player_sum}, terminal={self.terminal})"
+
+    def __eq__(self, other):
+        if isinstance(other, State):
+            return self.dealer_showing == other.dealer_showing and self.player_sum == other.player_sum and self.terminal == other.terminal
+        return False
