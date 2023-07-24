@@ -35,7 +35,50 @@ class Game:
             return self.select_action_greedy(policy, state)
 
     def select_action_greedy(self, policy, state):
-        return Action(np.argmax(policy[state.dealer_showing - 1, state.player_sum - 1]))
+        try:
+            return Action(np.argmax(policy[state.dealer_showing - 1, state.player_sum - 1]))
+        except IndexError:
+            return Action.STICK
+
+    def sarsa(self, episodes):
+        # initialise action-value function
+        action_value_function = np.zeros((10, 21, 2))
+        # initialise an arbitrary epsilon-soft policy
+        policy = self.rng.uniform(size=(10, 21, 2))
+        policy /= np.sum(policy, axis=2, keepdims=True)
+        # policy[:,:,0] corresponds to the probability of selecting HIT
+        # policy[:,:,1] corresponds to the probability of selecting STICK
+        N_0 = 100
+        N_s_a = np.zeros((10, 21, 2))
+        N_s = np.zeros((10, 21))
+        # repeat for each episode
+        for episode in range(episodes):
+            self.player.reset(value=self.rng.randint(1, 11))
+            self.dealer.reset(value=self.rng.randint(1, 11))
+            s_0 = State(dealers_first_card=self.dealer.score, players_sum=self.player.score,
+                        terminal=False)
+            epsilon = N_0 / (N_0 + N_s[s_0.dealer_showing - 1, s_0.player_sum - 1])
+            a_0 = self.select_action_epsilon_greedy(policy, s_0, epsilon)
+            # loop for each step of episode, t = 0, 1, 2, ..., T-1
+            while not s_0.terminal:
+                s_1, r_1 = self.step(s_0, a_0)
+                N_s[s_0.dealer_showing - 1, s_0.player_sum - 1] += 1
+                N_s_a[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value] += 1
+                epsilon = N_0 / (N_0 + N_s[s_0.dealer_showing - 1, s_0.player_sum - 1])
+                a_1 = self.select_action_epsilon_greedy(policy, s_1, epsilon)
+                alpha = 1 / N_s_a[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value]
+                gamma = 1
+                if not s_1.terminal:
+                    action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value] += alpha * (
+                                r_1 + gamma * action_value_function[s_1.dealer_showing - 1, s_1.player_sum - 1, a_1.value] - action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
+                else:
+                    action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value] += alpha * (
+                                r_1 - action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
+
+                policy[s_0.dealer_showing - 1, s_0.player_sum - 1] = np.eye(2)[np.argmax(action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1])]
+                s_0 = s_1
+                a_0 = a_1
+        return action_value_function
 
     def on_policy_monte_carlo_control(self, episodes):
         # initialise an arbitrary epsilon-soft policy

@@ -37,7 +37,7 @@ if __name__ == '__main__':
     dealer = Player(name="Dealer", deck=deck)
     # state = State(dealers_first_card=dealer.hand[0].value, players_sum=player.hand[0].value, terminal=False)
     game = Game(deck=deck, player=player, dealer=dealer, rng=rng)
-    action_value_function = game.on_policy_monte_carlo_control(episodes=1000000)
+    action_value_function = game.sarsa(episodes=1000000)
     optimal_value_function = np.max(action_value_function, axis=2)
     draw_action_value_function(opt_val_f=optimal_value_function)
     """while True:
