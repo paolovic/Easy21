@@ -70,12 +70,13 @@ class Game:
                 gamma = 1
                 if not s_1.terminal:
                     action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value] += alpha * (
-                                r_1 + gamma * action_value_function[s_1.dealer_showing - 1, s_1.player_sum - 1, a_1.value] - action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
+                            r_1 + gamma * action_value_function[s_1.dealer_showing - 1, s_1.player_sum - 1, a_1.value] -
+                            action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
                 else:
                     action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value] += alpha * (
-                                r_1 - action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
-
-                policy[s_0.dealer_showing - 1, s_0.player_sum - 1] = np.eye(2)[np.argmax(action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1])]
+                            r_1 - action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1, a_0.value])
+                policy[s_0.dealer_showing - 1, s_0.player_sum - 1] = np.eye(2)[
+                    np.argmax(action_value_function[s_0.dealer_showing - 1, s_0.player_sum - 1])]
                 s_0 = s_1
                 a_0 = a_1
         return action_value_function
@@ -118,7 +119,8 @@ class Game:
                     # for all a in A(s) (for all actions in the state)
                     for a in Action:
                         if a == action:
-                            policy[s_t.dealer_showing - 1, s_t.player_sum - 1, a.value] = 1 - epsilon + (epsilon / float(len(Action)))
+                            policy[s_t.dealer_showing - 1, s_t.player_sum - 1, a.value] = 1 - epsilon + (
+                                    epsilon / float(len(Action)))
                         else:
                             policy[s_t.dealer_showing - 1, s_t.player_sum - 1, a.value] = epsilon / float(len(Action))
         return action_value_function
